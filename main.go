@@ -5,15 +5,23 @@ import (
 	"net/http"
 )
 
+const (
+	PORT           = "8080"
+	FILE_PATH_ROOT = "."
+)
+
 func main() {
 	mux := http.NewServeMux()
 	corsMux := middlewareCors(mux)
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + PORT,
 		Handler: corsMux,
 	}
 
+	mux.Handle("/", http.FileServer(http.Dir(".")))
+
+	log.Printf("Serving files from %s on http://localhost:%s\n", FILE_PATH_ROOT, PORT)
 	log.Fatal(srv.ListenAndServe())
 }
 
