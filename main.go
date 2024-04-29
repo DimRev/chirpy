@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -49,7 +50,33 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{id}", cfg.handleGetChirpById)
 
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 
 	log.Printf("Serving files from %s on http://localhost:%s\n", FILE_PATH_ROOT, PORT)
 	log.Fatal(srv.ListenAndServe())
+}
+
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding params: %v", err)
+		respondWithError(w, 500, "Error logging in")
+		return
+	}
+
+	createdUser, err := cfg.db.Login(params.Email, params.Password)
+	if err != nil {
+		log.Printf("Error logging in user: %v", err)
+		respondWithError(w, 401, "Error logging in")
+		return
+	}
+
+	respondWithJSON(w, 200, createdUser)
 }
