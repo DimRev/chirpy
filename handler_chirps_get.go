@@ -8,8 +8,8 @@ import (
 func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.db.GetChirps()
 	if err != nil {
-		log.Printf("Error creating chirp: %v", err)
-		w.WriteHeader(500)
+		log.Printf("Error getting chirp: %v", err)
+		respondWithError(w, 500, "Error getting chirp")
 		return
 	}
 

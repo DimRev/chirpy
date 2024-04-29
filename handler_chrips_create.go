@@ -26,8 +26,8 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		log.Printf("Error decoding parameters: %s", err)
-		w.WriteHeader(500)
+		log.Printf("Error decoding params: %v", err)
+		respondWithError(w, 500, "Error creating chirp")
 		return
 	}
 
@@ -52,7 +52,7 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 	createdChirp, err := cfg.db.CreateChirp(formattedBody)
 	if err != nil {
 		log.Printf("Error creating chirp: %v", err)
-		w.WriteHeader(500)
+		respondWithError(w, 500, "Error creating chirp")
 		return
 	}
 

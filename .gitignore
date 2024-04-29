@@ -2,3 +2,5 @@ chirpy
 chirpy.exe
 
 .vscode/
+
+internal/database/database.json
