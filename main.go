@@ -48,6 +48,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", cfg.handleGetChirps)
 	mux.HandleFunc("GET /api/chirps/{id}", cfg.handleGetChirpById)
 
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+
 	log.Printf("Serving files from %s on http://localhost:%s\n", FILE_PATH_ROOT, PORT)
 	log.Fatal(srv.ListenAndServe())
 }

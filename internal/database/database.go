@@ -3,6 +3,7 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +17,12 @@ type DB struct {
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
+}
+
+type User struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
 }
 
 type Chirp struct {
@@ -40,87 +47,42 @@ func NewDB(path string) (*DB, error) {
 	return &db, nil
 }
 
-// CreateChirp creates a new chirp and saves it to disk
-func (db *DB) CreateChirp(body string) (Chirp, error) {
-
-	dbContent, err := db.loadDB()
-	if err != nil {
-		return Chirp{}, err
-	}
-
-	newChirp := Chirp{}
-
-	for i := 1; ; i++ {
-		_, ok := dbContent.Chirps[i]
-		if !ok {
-			newChirp = Chirp{
-				Id:   i,
-				Body: body,
-			}
-			dbContent.Chirps[i] = newChirp
-			break
-		}
-	}
-
-	err = db.writeDB(dbContent)
-	if err != nil {
-		return Chirp{}, err
-	}
-
-	return newChirp, nil
-}
-
-// GetChirps returns all chirps in the database
-func (db *DB) GetChirps() ([]Chirp, error) {
-	dbContent, err := db.loadDB()
-	if err != nil {
-		return nil, err
-	}
-	chirps := []Chirp{}
-	for _, val := range dbContent.Chirps {
-		chirps = append(chirps, val)
-	}
-
-	return chirps, nil
-}
-
-func (db *DB) GetChirpById(id int) (Chirp, error) {
-	dbContent, err := db.loadDB()
-	if err != nil {
-		return Chirp{}, err
-	}
-
-	chirp, ok := dbContent.Chirps[id]
-	if !ok {
-		return Chirp{}, fmt.Errorf("no chirp of id: %v in database", id)
-	}
-
-	return chirp, nil
-}
-
 // ensureDB creates a new database file if it doesn't exist
 func (db *DB) ensureDB() error {
-	db.mux.Lock()
+
+	dbg := flag.Bool("debug", false, "Enable debug mode")
+	flag.Parse()
 
 	_, err := os.ReadFile(db.path)
 	if err != nil {
 		var pathError *os.PathError
 		if errors.As(err, &pathError) && errors.Is(pathError.Err, os.ErrNotExist) {
-			log.Printf("creating new db-file: %v", db.path)
-			emptyChirps := DBStructure{
+			mode := ""
+			if *dbg {
+				mode = "Debug"
+			} else {
+				mode = "Production"
+			}
+			log.Printf("%v mode: initializing new database", mode)
+			db.writeDB(DBStructure{
 				Chirps: make(map[int]Chirp),
-			}
-			jsonData, err := json.Marshal(emptyChirps)
-			if err != nil {
-				return fmt.Errorf("failed to create new database file: %v", err)
-			}
-			os.WriteFile(db.path, []byte(jsonData), 0755)
+				Users:  make(map[int]User),
+			})
 		} else {
 			return fmt.Errorf("failed to read database file: %v", err)
 		}
+	} else if *dbg {
+		db.writeDB(DBStructure{
+			Chirps: make(map[int]Chirp),
+			Users:  make(map[int]User),
+		})
+		log.Println("Debug mode: wiping DB")
+		log.Println("Debug mode: connecting to DB")
+		return nil
+	} else {
+		log.Println("Production mode: connecting to DB")
 	}
 
-	db.mux.Unlock()
 	return nil
 }
 
