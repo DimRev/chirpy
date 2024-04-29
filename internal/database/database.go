@@ -8,11 +8,14 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"github.com/joho/godotenv"
 )
 
 type DB struct {
-	path string
-	mux  *sync.RWMutex
+	path      string
+	mux       *sync.RWMutex
+	jwtSecret string
 }
 
 type DBStructure struct {
@@ -21,9 +24,10 @@ type DBStructure struct {
 }
 
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Id               int    `json:"id"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	ExpiresInSeconds *int   `json:"expires_in_seconds"`
 }
 
 type Chirp struct {
@@ -34,10 +38,14 @@ type Chirp struct {
 // NewDB creates a new database connection
 // and creates the database file if it doesn't exist
 func NewDB(path string) (*DB, error) {
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
+
 	mux := &sync.RWMutex{}
 	db := DB{
-		path: path,
-		mux:  mux,
+		path:      path,
+		mux:       mux,
+		jwtSecret: jwtSecret,
 	}
 
 	err := db.ensureDB()
