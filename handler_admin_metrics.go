@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerAdminMetrics(w http.ResponseWriter, r *http.Request) {
 	formattedCount := fmt.Sprintf(`<html>
 
 	<body>
