@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/DimRev/chirpy/internal/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,7 +46,7 @@ func (db *DB) CreateUser(email, password string) (UserResp, error) {
 		return UserResp{}, err
 	}
 
-	token, err := db.createToken(nil, newUser.Id)
+	token, err := auth.CreateToken(nil, newUser.Id)
 	if err != nil {
 		return UserResp{}, err
 	}
@@ -60,7 +59,7 @@ func (db *DB) CreateUser(email, password string) (UserResp, error) {
 }
 
 func (db *DB) UpdateUser(email, password, tokenString string) (UserResp, error) {
-	userIdStr, err := db.ValidateJWT(tokenString)
+	userIdStr, err := auth.ValidateJWT(tokenString)
 	if err != nil {
 		return UserResp{}, fmt.Errorf("error phrasing the session token: %v", err)
 	}
@@ -124,7 +123,7 @@ func (db *DB) Login(email, password string, ExpiresInSeconds int) (UserResp, err
 				ExpiresInSeconds = defaultExpiration
 			}
 
-			token, err := db.createToken(&ExpiresInSeconds, user.Id)
+			token, err := auth.CreateToken(&ExpiresInSeconds, user.Id)
 			if err != nil {
 				return UserResp{}, errors.New("could not create JWT")
 			}
@@ -137,43 +136,4 @@ func (db *DB) Login(email, password string, ExpiresInSeconds int) (UserResp, err
 		}
 	}
 	return UserResp{}, errors.New("wrong email or password")
-}
-
-func (db *DB) createToken(ExpiresInSeconds *int, id int) (string, error) {
-	timeToAdd := 24 * time.Hour
-	if ExpiresInSeconds != nil {
-		timeToAdd = time.Duration(*ExpiresInSeconds) * time.Second
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer:    "chirpy",
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(timeToAdd)),
-		Subject:   fmt.Sprint(id),
-	})
-
-	signedToken, err := token.SignedString([]byte(db.jwtSecret))
-	if err != nil {
-		return "", err
-	}
-	return signedToken, nil
-}
-
-func (db *DB) ValidateJWT(tokenString string) (string, error) {
-	claimsStruct := jwt.RegisteredClaims{}
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		&claimsStruct,
-		func(token *jwt.Token) (interface{}, error) { return []byte(db.jwtSecret), nil },
-	)
-	if err != nil {
-		return "", err
-	}
-
-	userIDString, err := token.Claims.GetSubject()
-	if err != nil {
-		return "", err
-	}
-
-	return userIDString, nil
 }
