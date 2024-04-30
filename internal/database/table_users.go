@@ -60,12 +60,11 @@ func (db *DB) CreateUser(email, password string) (UserResp, error) {
 }
 
 func (db *DB) UpdateUser(email, password, tokenString string) (UserResp, error) {
-	token, err := db.parseToken(tokenString)
+	userIdStr, err := db.ValidateJWT(tokenString)
 	if err != nil {
 		return UserResp{}, fmt.Errorf("error phrasing the session token: %v", err)
 	}
 
-	userIdStr := token.Subject
 	id, err := strconv.Atoi(userIdStr)
 	if err != nil {
 		return UserResp{}, err
@@ -93,6 +92,11 @@ func (db *DB) UpdateUser(email, password, tokenString string) (UserResp, error) 
 		ExpiresInSeconds: prevUser.ExpiresInSeconds,
 	}
 
+	err = db.writeDB(dbContent)
+	if err != nil {
+		return UserResp{}, err
+	}
+
 	return UserResp{
 		Id:    id,
 		Email: email,
@@ -100,7 +104,7 @@ func (db *DB) UpdateUser(email, password, tokenString string) (UserResp, error) 
 	}, nil
 }
 
-func (db *DB) Login(email, password string) (UserResp, error) {
+func (db *DB) Login(email, password string, ExpiresInSeconds int) (UserResp, error) {
 	dbContent, err := db.loadDB()
 	if err != nil {
 		return UserResp{}, err
@@ -113,9 +117,16 @@ func (db *DB) Login(email, password string) (UserResp, error) {
 				return UserResp{}, errors.New("wrong email or password")
 			}
 
-			token, err := db.createToken(user.ExpiresInSeconds, user.Id)
+			defaultExpiration := 60 * 60 * 24
+			if ExpiresInSeconds == 0 {
+				ExpiresInSeconds = defaultExpiration
+			} else if ExpiresInSeconds > defaultExpiration {
+				ExpiresInSeconds = defaultExpiration
+			}
+
+			token, err := db.createToken(&ExpiresInSeconds, user.Id)
 			if err != nil {
-				return UserResp{}, err
+				return UserResp{}, errors.New("could not create JWT")
 			}
 
 			return UserResp{
@@ -148,28 +159,21 @@ func (db *DB) createToken(ExpiresInSeconds *int, id int) (string, error) {
 	return signedToken, nil
 }
 
-func (db *DB) parseToken(tokenStr string) (*jwt.RegisteredClaims, error) {
-	claims := &jwt.RegisteredClaims{}
-
-	// Parse the token. Second argument is a function that takes a parsed token
-	// and returns the key for validating the token's signature.
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		// Check if the token's signing method is as expected
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		// Return the secret key
-		return []byte(db.jwtSecret), nil
-	})
-
+func (db *DB) ValidateJWT(tokenString string) (string, error) {
+	claimsStruct := jwt.RegisteredClaims{}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&claimsStruct,
+		func(token *jwt.Token) (interface{}, error) { return []byte(db.jwtSecret), nil },
+	)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	if !token.Valid {
-		return nil, fmt.Errorf("token is not valid")
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return "", err
 	}
 
-	return claims, nil
+	return userIDString, nil
 }

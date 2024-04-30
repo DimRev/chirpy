@@ -61,8 +61,9 @@ func main() {
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Password         string `json:"password"`
+		Email            string `json:"email"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -74,7 +75,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loggedInUser, err := cfg.db.Login(params.Email, params.Password)
+	loggedInUser, err := cfg.db.Login(params.Email, params.Password, params.ExpiresInSeconds)
 	if err != nil {
 		log.Printf("Error logging in user: %v", err)
 		respondWithError(w, 401, "Error logging in")
@@ -92,11 +93,6 @@ func (cfg *apiConfig) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 401, "malformed authorization header")
 		return
 	}
-	log.Printf(`
-********
-	Header received: %v
-	Fields, 1: %v, 2:%v, len:%v
-********`, authHeader, splitAuth[0], splitAuth[1], len(splitAuth))
 
 	type parameters struct {
 		Email    string `json:"email"`
