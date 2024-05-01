@@ -3,8 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/DimRev/chirpy/internal/database"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -15,6 +17,19 @@ const (
 type apiConfig struct {
 	fileserverHits int
 	db             *database.DB
+	jwtSecret      string
+}
+
+type User struct {
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"-"`
+}
+
+type Chirp struct {
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorId int    `json:"author_id"`
 }
 
 func main() {
@@ -26,9 +41,17 @@ func main() {
 		log.Printf("Error connecting to DB: %v", err)
 	}
 
+	godotenv.Load(".env")
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is not set")
+	}
+
 	cfg := apiConfig{
 		fileserverHits: 0,
 		db:             db,
+		jwtSecret:      jwtSecret,
 	}
 
 	srv := &http.Server{
@@ -50,7 +73,10 @@ func main() {
 
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 	mux.HandleFunc("PUT /api/users", cfg.handleUpdateUser)
+
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
+	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
+	mux.HandleFunc("POST /api/revoke", cfg.handlerRevoke)
 
 	log.Printf("Serving files from %s on http://localhost:%s\n", FILE_PATH_ROOT, PORT)
 	log.Fatal(srv.ListenAndServe())

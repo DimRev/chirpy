@@ -16,20 +16,9 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
-}
-
-type User struct {
-	Id               int    `json:"id"`
-	Email            string `json:"email"`
-	Password         string `json:"password"`
-	ExpiresInSeconds *int   `json:"expires_in_seconds"`
-}
-
-type Chirp struct {
-	Id   int    `json:"id"`
-	Body string `json:"body"`
+	Chirps        map[int]Chirp           `json:"chirps"`
+	Users         map[int]User            `json:"users"`
+	RefreshTokens map[string]RefreshToken `json:"refresh_token"`
 }
 
 // NewDB creates a new database connection
@@ -50,6 +39,14 @@ func NewDB(path string) (*DB, error) {
 	return &db, nil
 }
 
+func (db *DB) CreateDB() {
+	db.writeDB(DBStructure{
+		Chirps:        make(map[int]Chirp),
+		Users:         make(map[int]User),
+		RefreshTokens: make(map[string]RefreshToken),
+	})
+}
+
 // ensureDB creates a new database file if it doesn't exist
 func (db *DB) ensureDB() error {
 
@@ -67,18 +64,12 @@ func (db *DB) ensureDB() error {
 				mode = "Production"
 			}
 			log.Printf("%v mode: initializing new database", mode)
-			db.writeDB(DBStructure{
-				Chirps: make(map[int]Chirp),
-				Users:  make(map[int]User),
-			})
+			db.CreateDB()
 		} else {
 			return fmt.Errorf("failed to read database file: %v", err)
 		}
 	} else if *dbg {
-		db.writeDB(DBStructure{
-			Chirps: make(map[int]Chirp),
-			Users:  make(map[int]User),
-		})
+		db.CreateDB()
 		log.Println("Debug mode: wiping DB")
 		log.Println("Debug mode: connecting to DB")
 		return nil

@@ -1,9 +1,17 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+)
+
+type Chirp struct {
+	Id       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorId int    `json:"author_id"`
+}
 
 // CreateChirp creates a new chirp and saves it to disk
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, userId int) (Chirp, error) {
 
 	dbContent, err := db.loadDB()
 	if err != nil {
@@ -16,8 +24,9 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 		_, ok := dbContent.Chirps[i]
 		if !ok {
 			newChirp = Chirp{
-				Id:   i,
-				Body: body,
+				Id:       i,
+				Body:     body,
+				AuthorId: userId,
 			}
 			dbContent.Chirps[i] = newChirp
 			break

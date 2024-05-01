@@ -2,31 +2,23 @@ package database
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
-
-	"github.com/DimRev/chirpy/internal/auth"
-	"golang.org/x/crypto/bcrypt"
 )
 
-type UserResp struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
-	Token string `json:"token"`
+type User struct {
+	Id               int    `json:"id"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	ExpiresInSeconds *int   `json:"expires_in_seconds"`
 }
 
-func (db *DB) CreateUser(email, password string) (UserResp, error) {
+func (db *DB) CreateUser(email, hashedPassword string) (User, error) {
 
 	dbContent, err := db.loadDB()
 	if err != nil {
-		return UserResp{}, err
+		return User{}, err
 	}
 
 	newUser := User{}
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 5)
-	if err != nil {
-		return UserResp{}, fmt.Errorf("failed hashing password: %v", err)
-	}
 
 	for i := 1; ; i++ {
 		_, ok := dbContent.Users[i]
@@ -43,97 +35,66 @@ func (db *DB) CreateUser(email, password string) (UserResp, error) {
 
 	err = db.writeDB(dbContent)
 	if err != nil {
-		return UserResp{}, err
+		return User{}, err
 	}
 
-	token, err := auth.CreateToken(nil, newUser.Id)
-	if err != nil {
-		return UserResp{}, err
-	}
-
-	return UserResp{
-		Id:    newUser.Id,
-		Email: newUser.Email,
-		Token: token,
-	}, nil
+	return newUser, nil
 }
 
-func (db *DB) UpdateUser(email, password, tokenString string) (UserResp, error) {
-	userIdStr, err := auth.ValidateJWT(tokenString)
+func (db *DB) GetUserByEmail(email string) (User, error) {
+	dbStructure, err := db.loadDB()
 	if err != nil {
-		return UserResp{}, fmt.Errorf("error phrasing the session token: %v", err)
+		return User{}, err
 	}
 
-	id, err := strconv.Atoi(userIdStr)
-	if err != nil {
-		return UserResp{}, err
+	for _, user := range dbStructure.Users {
+		if user.Email == email {
+			return user, nil
+		}
 	}
 
+	return User{}, errors.New("User does not exist")
+}
+
+func (db *DB) GetUserById(id int) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	for _, user := range dbStructure.Users {
+		if user.Id == id {
+			return user, nil
+		}
+	}
+
+	return User{}, errors.New("User does not exist")
+}
+
+func (db *DB) UpdateUser(email, hashedPassword string, id int) (User, error) {
 	dbContent, err := db.loadDB()
 	if err != nil {
-		return UserResp{}, err
+		return User{}, err
 	}
 
-	prevUser, ok := dbContent.Users[id]
-	if !ok {
-		return UserResp{}, errors.New("User id not found")
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 5)
+	userToUpdate, err := db.GetUserById(id)
 	if err != nil {
-		return UserResp{}, fmt.Errorf("failed hashing password: %v", err)
+		return User{}, err
 	}
 
-	dbContent.Users[id] = User{
-		Id:               prevUser.Id,
-		Password:         string(hashedPassword),
+	updatedUser := User{
+		Id:               id,
+		Password:         hashedPassword,
 		Email:            email,
-		ExpiresInSeconds: prevUser.ExpiresInSeconds,
+		ExpiresInSeconds: userToUpdate.ExpiresInSeconds,
 	}
+
+	dbContent.Users[id] = updatedUser
 
 	err = db.writeDB(dbContent)
 	if err != nil {
-		return UserResp{}, err
+		return User{}, err
 	}
 
-	return UserResp{
-		Id:    id,
-		Email: email,
-		Token: tokenString,
-	}, nil
-}
-
-func (db *DB) Login(email, password string, ExpiresInSeconds int) (UserResp, error) {
-	dbContent, err := db.loadDB()
-	if err != nil {
-		return UserResp{}, err
-	}
-
-	for _, user := range dbContent.Users {
-		if user.Email == email {
-			err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-			if err != nil {
-				return UserResp{}, errors.New("wrong email or password")
-			}
-
-			defaultExpiration := 60 * 60 * 24
-			if ExpiresInSeconds == 0 {
-				ExpiresInSeconds = defaultExpiration
-			} else if ExpiresInSeconds > defaultExpiration {
-				ExpiresInSeconds = defaultExpiration
-			}
-
-			token, err := auth.CreateToken(&ExpiresInSeconds, user.Id)
-			if err != nil {
-				return UserResp{}, errors.New("could not create JWT")
-			}
-
-			return UserResp{
-				Id:    user.Id,
-				Email: user.Email,
-				Token: token,
-			}, nil
-		}
-	}
-	return UserResp{}, errors.New("wrong email or password")
+	return updatedUser, nil
 }

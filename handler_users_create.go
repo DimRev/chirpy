@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/DimRev/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +23,13 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	createdUser, err := cfg.db.CreateUser(params.Email, params.Password)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "Couldn't hash password")
+		return
+	}
+
+	createdUser, err := cfg.db.CreateUser(params.Email, hashedPassword)
 	if err != nil {
 		log.Printf("Error creating user: %v", err)
 		respondWithError(w, 500, "Error creating user")

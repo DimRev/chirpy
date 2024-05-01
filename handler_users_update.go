@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/DimRev/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -16,6 +19,7 @@ func (cfg *apiConfig) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 401, "malformed authorization header")
 		return
 	}
+	tokenString := splitAuth[1]
 
 	type parameters struct {
 		Email    string `json:"email"`
@@ -29,11 +33,30 @@ func (cfg *apiConfig) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding params: %v", err)
-		respondWithError(w, 500, "Error updating user in")
+		respondWithError(w, 500, "Couldn't decode request body")
 		return
 	}
 
-	updatedUser, err := cfg.db.UpdateUser(params.Email, params.Password, splitAuth[1])
+	userIdString, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error decoding params: %v", err)
+		respondWithError(w, 401, "Couldn't validate token")
+		return
+	}
+
+	userIDInt, err := strconv.Atoi(userIdString)
+	if err != nil {
+		respondWithError(w, 500, "Couldn't parse user ID")
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "Couldn't hash password")
+		return
+	}
+
+	updatedUser, err := cfg.db.UpdateUser(params.Email, hashedPassword, userIDInt)
 	if err != nil {
 		log.Printf("Error updating user: %v", err)
 		respondWithError(w, 401, "Error updating user in")

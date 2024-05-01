@@ -5,7 +5,10 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
+
+	"github.com/DimRev/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +34,28 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	authHeader := r.Header.Get("Authorization")
+	splitAuth := strings.Split(authHeader, " ")
+	if len(splitAuth) < 2 || splitAuth[0] != "Bearer" {
+		log.Println("malformed authorization header")
+		respondWithError(w, 401, "malformed authorization header")
+		return
+	}
+	tokenString := splitAuth[1]
+
+	userIdString, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error decoding params: %v", err)
+		respondWithError(w, 401, "Couldn't validate token")
+		return
+	}
+
+	userIDInt, err := strconv.Atoi(userIdString)
+	if err != nil {
+		respondWithError(w, 500, "Couldn't parse user ID")
+		return
+	}
+
 	if len(params.Body) > 140 {
 		w.WriteHeader(400)
 		return
@@ -49,7 +74,7 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 
 	formattedBody := strings.Join(formattedWords, " ")
 
-	createdChirp, err := cfg.db.CreateChirp(formattedBody)
+	createdChirp, err := cfg.db.CreateChirp(formattedBody, userIDInt)
 	if err != nil {
 		log.Printf("Error creating chirp: %v", err)
 		respondWithError(w, 500, "Error creating chirp")
