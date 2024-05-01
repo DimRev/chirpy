@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -67,4 +68,31 @@ func (db *DB) GetChirpById(id int) (Chirp, error) {
 	}
 
 	return chirp, nil
+}
+
+func (db *DB) DeleteChirp(chirpId, userId int) error {
+	dbContent, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	chirp, ok := dbContent.Chirps[chirpId]
+	if !ok {
+		return errors.New("no such id found")
+	}
+
+	if chirp.AuthorId != userId {
+		return errors.New("user not authorized")
+	}
+
+	newChirps := make(map[int]Chirp)
+	for idx, currChirp := range dbContent.Chirps {
+		if idx != chirpId {
+			newChirps[idx] = currChirp
+		}
+	}
+
+	dbContent.Chirps = newChirps
+
+	return nil
 }
