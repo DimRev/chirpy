@@ -21,9 +21,10 @@ type apiConfig struct {
 }
 
 type User struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"-"`
+	ID          int    `json:"id"`
+	Email       string `json:"email"`
+	Password    string `json:"-"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -78,6 +79,8 @@ func main() {
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
 	mux.HandleFunc("POST /api/revoke", cfg.handlerRevoke)
+
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.handlerPolkaWebhook)
 
 	log.Printf("Serving files from %s on http://localhost:%s\n", FILE_PATH_ROOT, PORT)
 	log.Fatal(srv.ListenAndServe())

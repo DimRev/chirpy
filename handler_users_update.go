@@ -63,5 +63,9 @@ func (cfg *apiConfig) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, 200, updatedUser)
+	respondWithJSON(w, 200, User{
+		ID:          updatedUser.Id,
+		Email:       updatedUser.Email,
+		IsChirpyRed: updatedUser.IsChirpyRed,
+	})
 }
