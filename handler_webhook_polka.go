@@ -4,9 +4,24 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	splitAuth := strings.Split(authHeader, " ")
+	if len(splitAuth) < 2 || splitAuth[0] != "ApiKey" {
+		log.Println("malformed authorization header")
+		respondWithError(w, 401, "malformed authorization header")
+		return
+	}
+	apiKey := splitAuth[1]
+	if apiKey != cfg.polkaApiKey {
+		log.Println("invalid apiKey")
+		respondWithError(w, 401, "invalid apiKey")
+		return
+	}
+
 	type parameters struct {
 		Event string `json:"event"`
 		Data  struct {

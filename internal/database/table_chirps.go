@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 type Chirp struct {
@@ -43,14 +44,27 @@ func (db *DB) CreateChirp(body string, userId int) (Chirp, error) {
 }
 
 // GetChirps returns all chirps in the database
-func (db *DB) GetChirps() ([]Chirp, error) {
+func (db *DB) GetChirps(authorIdStr string) ([]Chirp, error) {
 	dbContent, err := db.loadDB()
 	if err != nil {
 		return nil, err
 	}
 	chirps := []Chirp{}
-	for _, val := range dbContent.Chirps {
-		chirps = append(chirps, val)
+
+	if authorIdStr != "" {
+		authorId, err := strconv.Atoi(authorIdStr)
+		if err != nil {
+			return nil, err
+		}
+		for _, chirp := range dbContent.Chirps {
+			if chirp.AuthorId == authorId {
+				chirps = append(chirps, chirp)
+			}
+		}
+	} else {
+		for _, chirp := range dbContent.Chirps {
+			chirps = append(chirps, chirp)
+		}
 	}
 
 	return chirps, nil

@@ -18,6 +18,7 @@ type apiConfig struct {
 	fileserverHits int
 	db             *database.DB
 	jwtSecret      string
+	polkaApiKey    string
 }
 
 type User struct {
@@ -49,10 +50,16 @@ func main() {
 		log.Fatal("JWT_SECRET environment variable is not set")
 	}
 
+	polkaApiKey := os.Getenv("POLKA_API_KEY")
+	if jwtSecret == "" {
+		log.Fatal("POLKA_API_KEY environment variable is not set")
+	}
+
 	cfg := apiConfig{
 		fileserverHits: 0,
 		db:             db,
 		jwtSecret:      jwtSecret,
+		polkaApiKey:    polkaApiKey,
 	}
 
 	srv := &http.Server{
