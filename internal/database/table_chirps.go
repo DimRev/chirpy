@@ -44,7 +44,7 @@ func (db *DB) CreateChirp(body string, userId int) (Chirp, error) {
 }
 
 // GetChirps returns all chirps in the database
-func (db *DB) GetChirps(authorIdStr string) ([]Chirp, error) {
+func (db *DB) GetChirps(authorIdStr, isAscStr string) ([]Chirp, error) {
 	dbContent, err := db.loadDB()
 	if err != nil {
 		return nil, err
@@ -64,6 +64,17 @@ func (db *DB) GetChirps(authorIdStr string) ([]Chirp, error) {
 	} else {
 		for _, chirp := range dbContent.Chirps {
 			chirps = append(chirps, chirp)
+		}
+	}
+
+	isAsc := true
+	if isAscStr == "desc" {
+		isAsc = false
+	}
+
+	if isAsc {
+		for i, j := 0, len(chirps)-1; i < j; i, j = i+1, j-1 {
+			chirps[i], chirps[j] = chirps[j], chirps[i]
 		}
 	}
 
